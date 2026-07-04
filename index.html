@@ -57,7 +57,34 @@
     let allKmbStopsCache = null;
     let autoRefreshTimer;
 
-    // 💡 強力封裝 fetch，內建 3 次重試機制
+    // 💡 安裝引導檢查
+    function checkInstallPrompt() {
+      const ua = navigator.userAgent.toLowerCase();
+      const isIOS = /ipad|iphone|ipod/.test(ua) && !window.MSStream;
+      const isAndroid = /android/.test(ua);
+      const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+      if (!isStandalone) {
+        setTimeout(() => {
+          const promptEl = document.getElementById('installPrompt');
+          if (isIOS) {
+            promptEl.style.bottom = '25px';
+            promptEl.innerHTML = `<button class="close-btn" onclick="this.parentElement.style.display='none'">✕</button>
+              <div style="font-weight:700; margin-bottom: 12px; color:var(--blue); font-size:17px;">💡 升級專屬 App</div>
+              <div style="text-align: left; font-size: 15px; line-height: 2;">1. 點擊下方分享按鈕<br>2. 往下滑動找到<b>「加入主畫面」</b></div>`;
+            promptEl.style.display = 'block';
+          } else if (isAndroid) {
+            promptEl.style.top = '15px';
+            promptEl.innerHTML = `<button class="close-btn" onclick="this.parentElement.style.display='none'">✕</button>
+              <div style="font-weight:700; margin-bottom: 12px; color:var(--blue); font-size:17px;">💡 升級專屬 App</div>
+              <div style="text-align: left; font-size: 15px; line-height: 2;">1. 點擊右上角 ⋮ 選單<br>2. 選擇<b>「加至主畫面」</b></div>`;
+            promptEl.style.display = 'block';
+          }
+        }, 2000);
+      }
+    }
+
+    // 💡 內建 3 次重試機制的 Fetch
     async function fetchWithRetry(url, retries = 3) {
       for (let i = 0; i < retries; i++) {
         try {
@@ -66,7 +93,7 @@
           return await res.json();
         } catch (e) {
           if (i === retries - 1) throw e;
-          await new Promise(r => setTimeout(r, 1000)); // 每次失敗等 1 秒
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
     }
@@ -97,7 +124,6 @@
           return d <= SEARCH_RADIUS;
         });
 
-        // 💡 針對每個站點的 ETA 請求也加上重試
         let etas = (await Promise.all(nearby.map(async s => {
           try {
             return (await fetchWithRetry(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${s.stop}`)).data.map(e => ({...e, stopName: s.name_tc}));
@@ -133,6 +159,7 @@
     }
 
     initGeolocation();
+    checkInstallPrompt(); // 💡 確保有這行！
   </script>
 </body>
 </html>
