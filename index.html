@@ -7,181 +7,33 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="附近巴士">
   <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/KMB_Logo.svg/1024px-KMB_Logo.svg.png">
-  
   <title>300米內巴士動態</title>
   
   <style>
-    /* iOS 原生毛玻璃與暗黑卡片風格 */
-    :root {
-      --bg-color: #000000;
-      --card-bg: #1c1c1e;
-      --text-main: #ffffff;
-      --text-sec: #ebebf599;
-      --accent: #ffd60a;
-      --kmb-red: #ff3b30;
-      --blue: #0a84ff;
-    }
-    
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      user-select: none;
-    }
-
-    .header {
-      background-color: rgba(28, 28, 30, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 20px 20px 15px;
-      padding-top: env(safe-area-inset-top, 45px);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      border-bottom: 0.5px solid rgba(255,255,255,0.1);
-    }
-
-    .header-title {
-      font-size: 20px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .refresh-btn {
-      background: rgba(10, 132, 255, 0.15);
-      border: none;
-      color: var(--blue);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 6px 14px;
-      border-radius: 16px;
-      transition: all 0.2s;
-    }
-    
+    /* 樣式保持不變 */
+    :root { --bg-color: #000000; --card-bg: #1c1c1e; --text-main: #ffffff; --text-sec: #ebebf599; --accent: #ffd60a; --kmb-red: #ff3b30; --blue: #0a84ff; }
+    body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
+    .header { background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 20px 20px 15px; padding-top: env(safe-area-inset-top, 45px); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 0.5px solid rgba(255,255,255,0.1); }
+    .header-title { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .refresh-btn { background: rgba(10, 132, 255, 0.15); border: none; color: var(--blue); font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 14px; border-radius: 16px; transition: all 0.2s; }
     .refresh-btn:active { opacity: 0.6; transform: scale(0.95); }
-
-    .list-container {
-      padding: 16px;
-      padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    /* 卡片式 UI 設計 */
-    .bus-card {
-      background-color: var(--card-bg);
-      border-radius: 20px;
-      padding: 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-
-    .bus-info {
-      flex-grow: 1;
-      overflow: hidden;
-    }
-
-    .route-row {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-
-    .route-num {
-      font-size: 26px;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    .route-dest {
-      font-size: 16px;
-      color: var(--text-sec);
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .stop-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--blue);
-      font-weight: 500;
-    }
-
-    .stop-dist {
-      background: rgba(10, 132, 255, 0.2);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 11px;
-    }
-
-    .stop-name {
-      color: #98989d;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 180px;
-    }
-
-    .eta-box {
-      text-align: right;
-      min-width: 70px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-    }
- 
-    .eta-time {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--accent);
-      line-height: 1.1;
-    }
-
+    .list-container { padding: 16px; padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 20px); display: flex; flex-direction: column; gap: 12px; }
+    .bus-card { background-color: var(--card-bg); border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+    .bus-info { flex-grow: 1; overflow: hidden; }
+    .route-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    .route-num { font-size: 26px; font-weight: 800; color: var(--text-main); }
+    .route-dest { font-size: 16px; color: var(--text-sec); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stop-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--blue); font-weight: 500; }
+    .stop-dist { background: rgba(10, 132, 255, 0.2); padding: 2px 6px; border-radius: 6px; font-size: 11px; }
+    .stop-name { color: #98989d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+    .eta-box { text-align: right; min-width: 70px; display: flex; flex-direction: column; align-items: flex-end; }
+    .eta-time { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1.1; }
     .eta-imminent { color: var(--kmb-red); font-size: 24px; }
     .eta-none { color: #666; font-size: 24px; }
-
-    .eta-unit {
-      font-size: 12px;
-      color: var(--text-sec);
-      font-weight: 500;
-      margin-top: 4px;
-    }
-
-    .status-area {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-sec);
-      font-size: 15px;
-      line-height: 1.5;
-    }
-
-    .loader {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-radius: 50%;
-      border-top-color: var(--blue);
-      animation: spin 1s ease-in-out infinite;
-      margin-bottom: 12px;
-    }
+    .eta-unit { font-size: 12px; color: var(--text-sec); font-weight: 500; margin-top: 4px; }
+    .status-area { text-align: center; padding: 40px 20px; color: var(--text-sec); font-size: 15px; line-height: 1.5; }
+    .loader { display: inline-block; width: 24px; height: 24px; border: 3px solid rgba(255, 255, 255, 0.1); border-radius: 50%; border-top-color: var(--blue); animation: spin 1s ease-in-out infinite; margin-bottom: 12px; }
+    .debug-info { margin-top: 15px; font-size: 12px; color: #ff9f0a; background: rgba(255,159,10,0.1); padding: 8px; border-radius: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -200,15 +52,12 @@
   </div>
 
   <script>
-    const SEARCH_RADIUS = 300; // 搜尋半徑（米）
+    const SEARCH_RADIUS = 300; 
     let allKmbStopsCache = null;
     let autoRefreshTimer;
 
-    // 1. 初始化 GPS 定位
     function initGeolocation() {
       const btn = document.getElementById("refreshBtn");
-      const list = document.getElementById("busList");
-      
       btn.innerText = "定位中...";
       btn.disabled = true;
       clearTimeout(autoRefreshTimer);
@@ -220,16 +69,19 @@
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          fetchNearbyBuses(position.coords.latitude, position.coords.longitude);
+          fetchNearbyBuses(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
         },
         (error) => {
-          showError("無法獲取位置，請確認已允許 Safari/網頁使用你的位置權限。");
+          let msg = "無法獲取位置。";
+          if (error.code === 1) msg = "你拒絕了定位權限，請在設定中開啟。";
+          if (error.code === 2) msg = "無法取得 GPS 訊號。";
+          if (error.code === 3) msg = "定位超時。";
+          showError(msg);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
-    // 計算兩個經緯度之間的距離（公尺/米）
     function getDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3; 
       const p1 = lat1 * Math.PI/180;
@@ -241,20 +93,22 @@
       return Math.round(R * c);
     }
 
-    // 2. 獲取附近巴士資料
-    async function fetchNearbyBuses(userLat, userLon) {
+    async function fetchNearbyBuses(userLat, userLon, accuracy) {
+      const list = document.getElementById("busList");
       const statusText = document.getElementById("statusText");
-      if(statusText) statusText.innerText = "正在搜尋 300 米內的巴士站...";
+      
+      // 顯示定位誤差，幫助抓蟲
+      let debugHtml = `<div class="debug-info">💡 GPS 誤差範圍：約 ${Math.round(accuracy)} 米<br>(如果大於 100 米，代表定位不夠準確)</div>`;
+      
+      if(statusText) statusText.innerHTML = `正在搜尋 300 米內的巴士站...<br>${debugHtml}`;
       
       try {
-        // 快取九巴站點，避免每次都下載大檔
         if (!allKmbStopsCache) {
           let stopsRes = await fetch("https://data.etabus.gov.hk/v1/transport/kmb/stop");
           let stopsJson = await stopsRes.json();
           allKmbStopsCache = stopsJson.data;
         }
 
-        // 過濾出 300 米內的站點
         let nearbyStops = allKmbStopsCache.map(stop => {
           return {
             ...stop,
@@ -263,18 +117,16 @@
         }).filter(stop => stop.distance <= SEARCH_RADIUS);
 
         if (nearbyStops.length === 0) {
-          showError(`在你附近 ${SEARCH_RADIUS} 米內找不到九巴站點。`);
+          showError(`在你附近 ${SEARCH_RADIUS} 米內找不到九巴站點。<br>${debugHtml}`);
           return;
         }
 
-        if(statusText) statusText.innerText = "正在獲取即時到站數據...";
+        if(statusText) statusText.innerHTML = `找到 ${nearbyStops.length} 個站點，正在獲取到站時間...`;
 
-        // 獲取所有附近站點的 ETA
         let fetchPromises = nearbyStops.map(async (stop) => {
           let etaRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop.stop}`);
           let etaJson = await etaRes.json();
           if (etaJson && etaJson.data) {
-            // 把站點資訊（距離、站名）合併進去
             return etaJson.data.map(eta => ({ ...eta, stopName: stop.name_tc, distance: stop.distance }));
           }
           return [];
@@ -286,22 +138,18 @@
         renderUI(allEtas);
 
       } catch (e) {
-        console.error(e);
-        showError("⚠️ 數據獲取失敗，請檢查網路連線。");
+        showError("⚠️ 數據獲取失敗，請檢查網路。");
       }
     }
 
-    // 3. 渲染美麗的 UI
     function renderUI(allEtas) {
       const list = document.getElementById("busList");
       const btn = document.getElementById("refreshBtn");
       list.innerHTML = ""; 
 
-      // 過濾掉沒有 eta 或已過期的班次
       const now = new Date();
       let validEtas = allEtas.filter(b => b.eta != null && new Date(b.eta) >= now);
 
-      // 去除同一路線、同方向的重複班次（保留最快到達的一班）
       let uniqueEtasMap = new Map();
       validEtas.forEach(b => {
         let key = `${b.route}-${b.dir}-${b.stopName}`;
@@ -311,8 +159,6 @@
       });
       
       let finalEtas = Array.from(uniqueEtasMap.values());
-
-      // 依照到站時間由近到遠排序
       finalEtas.sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
       if (finalEtas.length === 0) {
@@ -332,25 +178,13 @@
 
           const card = document.createElement("div");
           card.className = "bus-card";
-          
           card.innerHTML = `
             <div class="bus-info">
-              <div class="route-row">
-                <span class="route-num">${bus.route}</span>
-                <span class="route-dest">往 ${bus.dest_tc}</span>
-              </div>
-              <div class="stop-row">
-                <span class="stop-dist">${bus.distance}m</span>
-                <span class="stop-name">${bus.stopName} ${bus.w === "Y" ? "♿" : ""}</span>
-              </div>
+              <div class="route-row"><span class="route-num">${bus.route}</span><span class="route-dest">往 ${bus.dest_tc}</span></div>
+              <div class="stop-row"><span class="stop-dist">${bus.distance}m</span><span class="stop-name">${bus.stopName} ${bus.w === "Y" ? "♿" : ""}</span></div>
             </div>
-            <div class="eta-box">
-              <span class="${etaClass}">${etaDisplay}</span>
-              ${unitHtml}
-            </div>
+            <div class="eta-box"><span class="${etaClass}">${etaDisplay}</span>${unitHtml}</div>
           `;
-          
-          // 點擊卡片跳轉至 KMB App
           card.onclick = () => window.location.href = "app1933://";
           list.appendChild(card);
         });
@@ -358,8 +192,6 @@
 
       btn.innerText = "更新";
       btn.disabled = false;
-      
-      // 每 30 秒自動重新定位並更新
       autoRefreshTimer = setTimeout(initGeolocation, 30000);
     }
 
@@ -371,7 +203,6 @@
       btn.disabled = false;
     }
 
-    // 啟動 App
     initGeolocation();
   </script>
 </body>
