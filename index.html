@@ -51,7 +51,7 @@
   </div>
 
   <script>
-    const SEARCH_RADIUS = 400; // 已修改為 400 米
+    const SEARCH_RADIUS = 400; 
     let allKmbStopsCache = null;
     let autoRefreshTimer;
 
@@ -98,7 +98,7 @@
       
       let debugHtml = `<div class="debug-info">💡 GPS 誤差範圍：約 ${Math.round(accuracy)} 米<br>(如果大於 100 米，代表定位不夠準確)</div>`;
       
-      if(statusText) statusText.innerHTML = `正在搜尋 400 米內的巴士站...<br>${debugHtml}`; // 已更新文字
+      if(statusText) statusText.innerHTML = `正在搜尋 400 米內的巴士站...<br>${debugHtml}`; 
       
       try {
         if (!allKmbStopsCache) {
@@ -158,7 +158,6 @@
       
       let finalEtas = Array.from(uniqueEtasMap.values());
       
-      // 已修改：優先以距離（由近到遠）排序，距離相同則以到站時間排序
       finalEtas.sort((a, b) => {
         if (a.distance !== b.distance) {
           return a.distance - b.distance;
@@ -190,7 +189,7 @@
             </div>
             <div class="eta-box"><span class="${etaClass}">${etaDisplay}</span>${unitHtml}</div>
           `;
-          card.onclick = () => window.location.href = "app1933://";
+          // 已移除 card.onclick = () => window.location.href = "app1933://";
           list.appendChild(card);
         });
       }
