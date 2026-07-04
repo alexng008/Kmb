@@ -109,7 +109,7 @@
           if (retryCount < 1) setTimeout(() => initGeolocation(retryCount + 1), 2000);
           else showError("無法定位，請確認已開啟位置授權。");
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 300000 }
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 1800000 }
       );
     }
 
