@@ -34,6 +34,39 @@
     .loader { display: inline-block; width: 24px; height: 24px; border: 3px solid rgba(255, 255, 255, 0.1); border-radius: 50%; border-top-color: var(--blue); animation: spin 1s ease-in-out infinite; margin-bottom: 12px; }
     .debug-info { margin-top: 15px; font-size: 12px; color: #ff9f0a; background: rgba(255,159,10,0.1); padding: 8px; border-radius: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- 加入主畫面引導氣泡的動態樣式 --- */
+    .install-prompt {
+      display: none; 
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #000;
+      padding: 18px 20px 16px;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      z-index: 9999;
+      width: 85%;
+      max-width: 340px;
+      text-align: center;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    .install-prompt .close-btn {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #aaa;
+      cursor: pointer;
+      padding: 5px;
+    }
+    @keyframes popIn {
+      0% { opacity: 0; transform: translate(-50%, 20px) scale(0.9); }
+      100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    }
   </style>
 </head>
 <body>
@@ -50,12 +83,54 @@
     </div>
   </div>
 
+  <div id="installPrompt" class="install-prompt"></div>
+
   <script>
     const SEARCH_RADIUS = 400; 
     let allKmbStopsCache = null;
     let autoRefreshTimer;
 
-    // 💡 全新的 Fetch Helper：內建 Retry 機制 (預設失敗重試 2 次)
+    // 💡 全新圖文並茂的安裝引導
+    function checkInstallPrompt() {
+      const ua = navigator.userAgent.toLowerCase();
+      const isIOS = /ipad|iphone|ipod/.test(ua) && !window.MSStream;
+      const isAndroid = /android/.test(ua);
+      const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+      if (!isStandalone) {
+        setTimeout(() => {
+          const promptEl = document.getElementById('installPrompt');
+          
+          if (isIOS) {
+            promptEl.style.bottom = '25px';
+            promptEl.innerHTML = `
+              <button class="close-btn" onclick="document.getElementById('installPrompt').style.display='none'">✕</button>
+              <div style="font-weight:700; margin-bottom: 12px; color:var(--blue); font-size:17px; letter-spacing:0.5px;">💡 免費升級專屬 App</div>
+              <div style="text-align: left; font-size: 15px; display: inline-block; line-height: 2;">
+                1. 點擊下方 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: sub; margin: 0 2px; color:var(--blue);"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> 分享按鈕<br>
+                2. 在選單中<b>一直往下滑動</b><br>
+                3. 點選 <span style="background:#f2f2f7; padding:4px 8px; border-radius:8px; color:#000; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,0.1);">➕ 加入主畫面</span>
+              </div>
+              <div style="position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 14px solid rgba(255, 255, 255, 0.98);"></div>
+            `;
+            promptEl.style.display = 'block';
+          } else if (isAndroid) {
+            promptEl.style.top = '15px';
+            promptEl.innerHTML = `
+              <button class="close-btn" onclick="document.getElementById('installPrompt').style.display='none'">✕</button>
+              <div style="font-weight:700; margin-bottom: 12px; color:var(--blue); font-size:17px; letter-spacing:0.5px;">💡 免費升級專屬 App</div>
+              <div style="text-align: left; font-size: 15px; display: inline-block; line-height: 2;">
+                1. 點擊右上角 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: sub; margin: 0 2px;"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg> 選單<br>
+                2. 點選 <span style="background:#f2f2f7; padding:4px 8px; border-radius:8px; color:#000; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,0.1);">加至主畫面</span>
+              </div>
+              <div style="position: absolute; top: -12px; right: 20px; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 14px solid rgba(255, 255, 255, 0.98);"></div>
+            `;
+            promptEl.style.display = 'block';
+          }
+        }, 2000);
+      }
+    }
+
     async function fetchWithRetry(url, maxRetries = 2) {
       let lastError;
       for (let i = 0; i <= maxRetries; i++) {
@@ -65,13 +140,10 @@
           return await res.json();
         } catch (e) {
           lastError = e;
-          // 如果還沒達到最大次數，等待 1 秒後默默重試
-          if (i < maxRetries) {
-            await new Promise(r => setTimeout(r, 1000));
-          }
+          if (i < maxRetries) await new Promise(r => setTimeout(r, 1000));
         }
       }
-      throw lastError; // 所有次數都失敗才放棄
+      throw lastError; 
     }
 
     function initGeolocation() {
@@ -116,21 +188,16 @@
       const statusText = document.getElementById("statusText");
       
       let debugHtml = `<div class="debug-info">💡 GPS 誤差範圍：約 ${Math.round(accuracy)} 米</div>`;
-      
       if(statusText) statusText.innerHTML = `正在搜尋 400 米內的巴士站...<br>${debugHtml}`; 
       
       try {
         if (!allKmbStopsCache) {
-          // 使用帶有 Retry 功能的抓取，確保站點清單能順利下載
           let stopsJson = await fetchWithRetry("https://data.etabus.gov.hk/v1/transport/kmb/stop");
           allKmbStopsCache = stopsJson.data;
         }
 
         let nearbyStops = allKmbStopsCache.map(stop => {
-          return {
-            ...stop,
-            distance: getDistance(userLat, userLon, stop.lat, stop.long)
-          };
+          return { ...stop, distance: getDistance(userLat, userLon, stop.lat, stop.long) };
         }).filter(stop => stop.distance <= SEARCH_RADIUS);
 
         nearbyStops.sort((a, b) => a.distance - b.distance);
@@ -141,20 +208,16 @@
         }
 
         let targetStops = nearbyStops.slice(0, 15);
-
         if(statusText) statusText.innerHTML = `找到 ${nearbyStops.length} 個站點，正在獲取到站時間...`;
 
         let fetchPromises = targetStops.map(async (stop) => {
           try {
-            // 同樣對每個站點的到站時間使用 Retry 功能
             let etaJson = await fetchWithRetry(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop.stop}`);
             if (etaJson && etaJson.data) {
               return etaJson.data.map(eta => ({ ...eta, stopName: stop.name_tc, distance: stop.distance }));
             }
             return [];
           } catch(err) {
-            // 💡 容錯機制：如果某個站點重試兩次還是失敗，就回傳空陣列，不影響整個畫面顯示
-            console.warn(`跳過失效站點: ${stop.name_tc}`);
             return [];
           }
         });
@@ -165,7 +228,6 @@
         renderUI(allEtas);
 
       } catch (e) {
-        // 只有當最核心的站點資料徹底死掉時，才會來到這裡顯示錯誤
         showError(`⚠️ 數據獲取失敗，請檢查網路連線。<br><div class="debug-info" style="color:#ff453a;">錯誤原因：${e.message}</div>`);
       }
     }
@@ -237,6 +299,7 @@
     }
 
     initGeolocation();
+    checkInstallPrompt();
   </script>
 </body>
 </html>
