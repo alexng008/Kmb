@@ -57,7 +57,7 @@
 
   <div class="header">
     <div class="header-title">📍 附近巴士</div>
-    <button class="refresh-btn" id="refreshBtn" onclick="initGeolocation()">更新</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="initGeolocation(0, true)">更新</button>
   </div>
 
   <div id="stopFilters" class="filter-container" style="display: none;"></div>
@@ -111,7 +111,9 @@
     async function fetchWithRetry(url, retries = 3) {
       for (let i = 0; i < retries; i++) {
         try {
-          const res = await fetch(url);
+          // 💡 優化：在 URL 後面強制加上時間戳記（_t），破除主畫面 App 的 API 緩存機制
+          const separator = url.includes('?') ? '&' : '?';
+          const res = await fetch(`${url}${separator}_t=${Date.now()}`);
           if (!res.ok) throw new Error();
           return await res.json();
         } catch (e) {
@@ -121,7 +123,13 @@
       }
     }
 
-    function initGeolocation(retryCount = 0) {
+    // 💡 關鍵修正：確實清除計時器，並強制要求最新 GPS 座標
+    function initGeolocation(retryCount = 0, isManualClick = false) {
+      // 如果是用戶手動按 Refresh，立刻清除背後的自動更新計時器，防止兩個定位程序衝突
+      if (isManualClick) {
+        clearTimeout(autoRefreshTimer);
+      }
+
       const btn = document.getElementById("refreshBtn");
       btn.innerText = "定位中...";
       btn.disabled = true;
@@ -131,10 +139,14 @@
       navigator.geolocation.getCurrentPosition(
         (pos) => fetchNearbyBuses(pos.coords.latitude, pos.coords.longitude),
         (err) => {
-          if (retryCount < 1) setTimeout(() => initGeolocation(retryCount + 1), 2000);
+          if (retryCount < 1) setTimeout(() => initGeolocation(retryCount + 1, isManualClick), 2000);
           else showError("無法定位，請確認已開啟位置授權。");
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 1800000 }
+        { 
+          enableHighAccuracy: true, 
+          timeout: 15000,           
+          maximumAge: 0 // 💡 設為 0：只要執行此段，強制手機硬體重新尋找當前 GPS，絕不允許讀取快取舊位置
+        }
       );
     }
 
@@ -195,15 +207,15 @@
         document.getElementById("refreshBtn").innerText = "更新";
         document.getElementById("refreshBtn").disabled = false;
         
+        // 安全重置下一次的自動更新計時
         clearTimeout(autoRefreshTimer);
-        autoRefreshTimer = setTimeout(() => initGeolocation(), 30000);
+        autoRefreshTimer = setTimeout(() => initGeolocation(0, false), 30000);
 
       } catch (e) { 
         showError("無法連線至九巴伺服器，請稍後再試。"); 
       }
     }
 
-    // 生成車站按鈕
     function renderFilters() {
       const filterContainer = document.getElementById("stopFilters");
       if (!currentEtas || currentEtas.length === 0) {
@@ -221,20 +233,15 @@
       filterContainer.innerHTML = html;
     }
 
-    // 💡 優化：只有在「選了特定車站」時，才顯示這一站有什麼路線
     function renderRouteFilters() {
       const routeContainer = document.getElementById("routeFilters");
       
-      // 如果目前是「全部車站」，就不顯示第二層路線按鈕，避免按鈕太多找不到
       if (currentFilterStopName === "All" || !currentEtas || currentEtas.length === 0) {
         routeContainer.style.display = "none";
         return;
       }
 
-      // 篩選出目前選定車站的所有班次
       let sourceEtas = currentEtas.filter(b => b.stopNameClean === currentFilterStopName);
-
-      // 提取該車站有的巴士路線，並排序
       let uniqueRoutes = [...new Set(sourceEtas.map(b => b.route))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
 
       routeContainer.style.display = "flex";
@@ -248,7 +255,7 @@
 
     function setFilter(stopName) {
       currentFilterStopName = stopName;
-      currentFilterRoute = "All"; // 切換車站時，路線重置為全部
+      currentFilterRoute = "All"; 
       
       renderFilters(); 
       renderRouteFilters(); 
@@ -263,7 +270,6 @@
 
     function renderUI() {
       const list = document.getElementById("busList");
-      
       let displayEtas = currentEtas;
       
       if (currentFilterStopName !== "All") {
@@ -305,7 +311,8 @@
       document.getElementById("refreshBtn").disabled = false;
     }
 
-    initGeolocation();
+    // 初始載入
+    initGeolocation(0, false);
     checkInstallPrompt(); 
   </script>
 </body>
