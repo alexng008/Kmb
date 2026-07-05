@@ -17,11 +17,21 @@
     .refresh-btn { background: rgba(10, 132, 255, 0.15); border: none; color: var(--blue); font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 14px; border-radius: 16px; transition: all 0.2s; }
     .refresh-btn:active { opacity: 0.6; transform: scale(0.95); }
     
-    /* 車站過濾區區塊 */
-    .filter-container { display: flex; overflow-x: auto; gap: 10px; padding: 12px 16px 4px; scrollbar-width: none; background-color: var(--bg-color); position: sticky; top: calc(env(safe-area-inset-top, 45px) + 56px); z-index: 99; }
+    /* 車站與路線過濾按鈕區塊 */
+    .filter-container { display: flex; overflow-x: auto; gap: 10px; padding: 12px 16px 4px; scrollbar-width: none; background-color: var(--bg-color); position: sticky; z-index: 99; }
     .filter-container::-webkit-scrollbar { display: none; }
-    .filter-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: var(--text-sec); border-radius: 20px; padding: 8px 16px; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
+    
+    /* 車站欄固定在 Header 下方 */
+    #stopFilters { top: calc(env(safe-area-inset-top, 45px) + 56px); border-bottom: 0.5px solid rgba(255,255,255,0.05); }
+    /* 路線欄緊跟在車站欄下方 */
+    #routeFilters { top: calc(env(safe-area-inset-top, 45px) + 110px); padding-top: 4px; padding-bottom: 8px; }
+
+    .filter-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: var(--text-sec); border-radius: 20px; padding: 6px 14px; font-size: 13px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
     .filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+    
+    /* 路線按鈕樣式稍微加強辨識度 */
+    .route-filter-btn { background: rgba(255, 214, 10, 0.05); border-color: rgba(255, 214, 10, 0.2); color: #ffe66d; }
+    .route-filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
 
     .list-container { padding: 16px; padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 20px); display: flex; flex-direction: column; gap: 12px; }
     .bus-card { background-color: var(--card-bg); border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
@@ -51,6 +61,8 @@
   </div>
 
   <div id="stopFilters" class="filter-container" style="display: none;"></div>
+  
+  <div id="routeFilters" class="filter-container" style="display: none;"></div>
 
   <div class="list-container" id="busList">
     <div class="status-area" id="statusArea">
@@ -68,6 +80,7 @@
     
     let currentEtas = []; 
     let currentFilterStopName = "All"; 
+    let currentFilterRoute = "All"; // 💡 新增：儲存當前點選的巴士路線過濾器
 
     function checkInstallPrompt() {
       const ua = navigator.userAgent.toLowerCase();
@@ -113,6 +126,7 @@
       btn.innerText = "定位中...";
       btn.disabled = true;
       document.getElementById("stopFilters").style.display = "none"; 
+      document.getElementById("routeFilters").style.display = "none"; 
 
       navigator.geolocation.getCurrentPosition(
         (pos) => fetchNearbyBuses(pos.coords.latitude, pos.coords.longitude),
@@ -137,14 +151,11 @@
 
         let rawEtas = (await Promise.all(nearby.map(async s => {
           try {
-            // 💡 關鍵修復：使用 Regex 強制去除類似 "(ND965)" 的 ID 標籤
-            // 這樣只會留下純中文，例如「聯和墟總站」
             let pureName = s.name_tc.replace(/\s*\([A-Za-z0-9_]+\)$/, '').trim();
-            
             return (await fetchWithRetry(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${s.stop}`)).data.map(e => ({
               ...e, 
-              stopNameRaw: s.name_tc,  // 列表中顯示用：保留 "(ND965)" 方便認柱
-              stopNameClean: pureName, // 過濾按鈕用：乾淨無 ID 版本
+              stopNameRaw: s.name_tc,  
+              stopNameClean: pureName, 
               distance: s.distance
             }));
           } catch { return []; }
@@ -152,7 +163,6 @@
 
         let uniqueMap = new Map();
         rawEtas.forEach(item => {
-          // 合併依據改用 pureName
           let key = `${item.stopNameClean}_${item.route}_${item.dest_tc}_${item.eta}`;
           if (!uniqueMap.has(key)) {
             uniqueMap.set(key, item);
@@ -173,12 +183,15 @@
 
         currentEtas = etas;
         
+        // 驗證過濾狀態是否依然有效
         const availableStops = [...new Set(currentEtas.map(b => b.stopNameClean))];
         if (currentFilterStopName !== "All" && !availableStops.includes(currentFilterStopName)) {
             currentFilterStopName = "All";
         }
-
+        
+        // 重新繪製 UI
         renderFilters(); 
+        renderRouteFilters(); // 💡 新增：生成路線過濾器
         renderUI();      
 
         document.getElementById("refreshBtn").innerText = "更新";
@@ -192,6 +205,7 @@
       }
     }
 
+    // 生成車站按鈕
     function renderFilters() {
       const filterContainer = document.getElementById("stopFilters");
       if (!currentEtas || currentEtas.length === 0) {
@@ -199,35 +213,79 @@
         return;
       }
       
-      // 使用純中文名字來建立按鈕（不會再有重複）
       let uniqueStops = [...new Set(currentEtas.map(b => b.stopNameClean))];
-      
       filterContainer.style.display = "flex";
       
-      let html = `<button class="filter-btn ${currentFilterStopName === 'All' ? 'active' : ''}" onclick="setFilter('All')">全部</button>`;
-      
+      let html = `<button class="filter-btn ${currentFilterStopName === 'All' ? 'active' : ''}" onclick="setFilter('All')">全部車站</button>`;
       uniqueStops.forEach(stop => {
         html += `<button class="filter-btn ${currentFilterStopName === stop ? 'active' : ''}" onclick="setFilter('${stop}')">${stop}</button>`;
       });
-      
       filterContainer.innerHTML = html;
+    }
+
+    // 💡 新增：動態生成「巴士路線」過濾按鈕
+    function renderRouteFilters() {
+      const routeContainer = document.getElementById("routeFilters");
+      if (!currentEtas || currentEtas.length === 0) {
+        routeContainer.style.display = "none";
+        return;
+      }
+
+      // 根據當前「已選車站」來決定要顯示哪些路線（如果選了全部車站，就顯示附近全部路線）
+      let sourceEtas = currentEtas;
+      if (currentFilterStopName !== "All") {
+        sourceEtas = currentEtas.filter(b => b.stopNameClean === currentFilterStopName);
+      }
+
+      // 提取排序過的不重複路線名稱 (例如: 1A, 78A, A43)
+      let uniqueRoutes = [...new Set(sourceEtas.map(b => b.route))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+
+      // 如果當前點選的路線，在切換車站後不存在，則重置為 "All"
+      if (currentFilterRoute !== "All" && !uniqueRoutes.includes(currentFilterRoute)) {
+        currentFilterRoute = "All";
+      }
+
+      routeContainer.style.display = "flex";
+
+      let html = `<button class="filter-btn route-filter-btn ${currentFilterRoute === 'All' ? 'active' : ''}" onclick="setRouteFilter('All')">全部路線</button>`;
+      uniqueRoutes.forEach(route => {
+        html += `<button class="filter-btn route-filter-btn ${currentFilterRoute === route ? 'active' : ''}" onclick="setRouteFilter('${route}')">${route}</button>`;
+      });
+      routeContainer.innerHTML = html;
     }
 
     function setFilter(stopName) {
       currentFilterStopName = stopName;
+      // 💡 重大變動：換車站時，將路線選擇重置為全部，避免交叉過濾出空資料
+      currentFilterRoute = "All"; 
+      
       renderFilters(); 
+      renderRouteFilters(); // 重新整理路線按鈕清單
+      renderUI();      
+    }
+
+    // 💡 新增：處理路線按鈕點擊事件
+    function setRouteFilter(routeNum) {
+      currentFilterRoute = routeNum;
+      renderRouteFilters(); // 更新路線按鈕選取狀態
       renderUI();      
     }
 
     function renderUI() {
       const list = document.getElementById("busList");
       
+      // 💡 雙重過濾邏輯：先過濾車站，再過濾路線
       let displayEtas = currentEtas;
+      
       if (currentFilterStopName !== "All") {
-        displayEtas = currentEtas.filter(b => b.stopNameClean === currentFilterStopName);
+        displayEtas = displayEtas.filter(b => b.stopNameClean === currentFilterStopName);
+      }
+      
+      if (currentFilterRoute !== "All") {
+        displayEtas = displayEtas.filter(b => b.route === currentFilterRoute);
       }
 
-      list.innerHTML = displayEtas.length ? "" : "<div class='status-area'>所選車站暫無班次。</div>";
+      list.innerHTML = displayEtas.length ? "" : "<div class='status-area'>所選條件暫無班次。</div>";
       
       displayEtas.forEach(bus => {
         let min = Math.max(0, Math.floor((new Date(bus.eta) - new Date()) / 60000));
