@@ -67,7 +67,7 @@
     let autoRefreshTimer;
     
     let currentEtas = []; 
-    let currentFilterStopName = "All"; // 儲存當前過濾的「純中文站名」
+    let currentFilterStopName = "All"; 
 
     function checkInstallPrompt() {
       const ua = navigator.userAgent.toLowerCase();
@@ -130,32 +130,33 @@
           allKmbStopsCache = (await fetchWithRetry("https://data.etabus.gov.hk/v1/transport/kmb/stop")).data;
         }
 
-        // 1. 計算距離並加入物件中，過濾 400 米內的車站
         let nearby = allKmbStopsCache.map(stop => {
           let d = Math.sqrt(Math.pow((stop.lat - lat) * 111000, 2) + Math.pow((stop.long - lon) * 111000, 2));
           return { ...stop, distance: d };
         }).filter(stop => stop.distance <= SEARCH_RADIUS);
 
-        // 2. 獲取並合併所有分站的 ETA
         let rawEtas = (await Promise.all(nearby.map(async s => {
           try {
+            // 💡 關鍵修復：使用 Regex 強制去除類似 "(ND965)" 的 ID 標籤
+            // 這樣只會留下純中文，例如「聯和墟總站」
+            let pureName = s.name_tc.replace(/\s*\([A-Za-z0-9_]+\)$/, '').trim();
+            
             return (await fetchWithRetry(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${s.stop}`)).data.map(e => ({
               ...e, 
-              stopNameClean: s.name_tc, // 純中文站名，用作合併與過濾
+              stopNameRaw: s.name_tc,  // 列表中顯示用：保留 "(ND965)" 方便認柱
+              stopNameClean: pureName, // 過濾按鈕用：乾淨無 ID 版本
               distance: s.distance
             }));
           } catch { return []; }
         }))).flat().filter(b => b.eta && new Date(b.eta) > new Date());
 
-        // 💡 核心優化：過濾掉因為變體（例如：經山麗/不經山麗）導致在同站、同線路、同時間產生的重複推播
         let uniqueMap = new Map();
         rawEtas.forEach(item => {
-          // 產生唯一的辨識 Key：站名 + 路線 + 目的地 + 到站時間
+          // 合併依據改用 pureName
           let key = `${item.stopNameClean}_${item.route}_${item.dest_tc}_${item.eta}`;
           if (!uniqueMap.has(key)) {
             uniqueMap.set(key, item);
           } else {
-             // 如果重複了，優先保留文字敘述較長的變體（通常資訊更完整，例如含有 [不經山麗]）
              if ((item.dest_tc || '').length > (uniqueMap.get(key).dest_tc || '').length) {
                  uniqueMap.set(key, item);
              }
@@ -163,7 +164,6 @@
         });
         let etas = Array.from(uniqueMap.values());
 
-        // 3. 雙重排序：永遠維持「由近到遠」，同車站則按照「時間由早到晚」
         etas.sort((a, b) => {
           if (a.distance !== b.distance) {
             return a.distance - b.distance; 
@@ -173,7 +173,6 @@
 
         currentEtas = etas;
         
-        // 驗證原本點選的車站過濾器是否還在有效範圍內
         const availableStops = [...new Set(currentEtas.map(b => b.stopNameClean))];
         if (currentFilterStopName !== "All" && !availableStops.includes(currentFilterStopName)) {
             currentFilterStopName = "All";
@@ -193,7 +192,6 @@
       }
     }
 
-    // 生成「已合併重複名稱」的車站過濾按鈕
     function renderFilters() {
       const filterContainer = document.getElementById("stopFilters");
       if (!currentEtas || currentEtas.length === 0) {
@@ -201,7 +199,7 @@
         return;
       }
       
-      // 💡 這裡純粹用乾淨的中文站名去重，所以「聯和墟總站」不論有多少個柱 ID 都只會出現一次
+      // 使用純中文名字來建立按鈕（不會再有重複）
       let uniqueStops = [...new Set(currentEtas.map(b => b.stopNameClean))];
       
       filterContainer.style.display = "flex";
@@ -242,7 +240,7 @@
               <span class="route-dest">往 ${bus.dest_tc}</span>
             </div>
             <div class="stop-row">
-              <span class="stop-name">${bus.stopNameClean}</span>
+              <span class="stop-name">${bus.stopNameRaw}</span>
               <span style="color: #98989d; font-size: 11px; margin-left: 6px;">(${dist}m)</span>
             </div>
           </div>
